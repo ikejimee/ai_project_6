@@ -24,6 +24,7 @@ import samples
 import sys
 import util
 from pacman import GameState
+from collections import deque
 
 TEST_SET_SIZE = 100
 DIGIT_DATUM_WIDTH=28
@@ -72,16 +73,66 @@ def enhancedFeatureExtractorDigit(datum):
     for this datum (datum is of type samples.Datum).
 
     ## DESCRIBE YOUR ENHANCED FEATURES HERE...
+    Count the number of loops in the digit:
+        0 loops: 1, 2, 3, 5, 7
+        1 loop: 0, 6, 9
+        2 loops: 8
+        
+        Loops through each pixel, if its unvisited and white then its a "new white region"
+        Use BFS to explore all connecting white pixels and mark them as visited 
+        When scanning, if another white pixel is found then it must be a new region
+        Note: the background is also a white region
 
-    ##
     """
     features =  basicFeatureExtractorDigit(datum)
 
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    width, height = DIGIT_DATUM_WIDTH, DIGIT_DATUM_HEIGHT
+    
+    # count number of loops using BFS
+    num_regions, visited = 0, set()
 
+    # loop over each pixel 
+    for x in range(width):
+        for y in range(height):
+            # for each pixel, perform BFS and explore all connecting white pixels (use visited set)
+           if datum.getPixel(x, y) == 0 and (x, y) not in visited:
+               num_regions += 1
+               visited.add((x, y))
+               _bfs(visited, (x, y), datum, width, height)
+    
+    
+    # set feature based on number of loops found
+    features["has_zero_holes"] = 0
+    features["has_one_hole"] = 0
+    features["has_two_holes"] = 0   
+    
+    if num_regions == 1: # the one region is the background
+        features["has_zero_holes"] = 1
+    elif num_regions == 2:
+        features["has_one_hole"] = 1
+    elif num_regions >= 3:
+        features["has_two_holes"] = 1
+    
     return features
 
+
+def _bfs(visited, pixel, datum, width, height):
+    queue = deque()
+    queue.append(pixel)
+    
+    # bfs to find connecting white pixels 
+    while queue:
+        x, y = queue.popleft()
+        
+        for neighbour_x, neighbour_y in _get_neighbours(x, y):
+            # if neigbour pixel is within height and width pounds, is white and not visited yet
+            if 0 <= neighbour_x < width and 0 <= neighbour_y < height and datum.getPixel(neighbour_x, neighbour_y) == 0 and (neighbour_x, neighbour_y) not in visited:
+                visited.add((neighbour_x, neighbour_y))
+                queue.append((neighbour_x, neighbour_y))
+        
+
+def _get_neighbours(x, y) -> list:
+    return [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
 
 
 def basicFeatureExtractorPacman(state):
