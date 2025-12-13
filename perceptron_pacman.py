@@ -49,5 +49,29 @@ class PerceptronClassifierPacman(PerceptronClassifier):
         for iteration in range(self.max_iterations):
             print("Starting iteration ", iteration, "...")
             for i in range(len(trainingData)):
-                "*** YOUR CODE HERE ***"
-                util.raiseNotDefined()
+                featuresForActions, possibleActions = trainingData[i]
+                correctAction = trainingLabels[i]
+                chosenAction, best = None, float('-inf')
+
+                # score each legal action
+                for action in possibleActions:
+                    score = 0
+
+                    # find dot product of weights and features
+                    for feature, value in featuresForActions[action].items():
+                        score += self.weights[feature] * value
+                    
+                    # keep action with highest score
+                    if score > best:
+                        best, chosenAction = score, action
+
+                if chosenAction == correctAction:
+                    continue
+
+                # increase weights for features with correct action
+                for feature, value in featuresForActions[correctAction].items():
+                    self.weights[feature] += value
+                
+                # decrease weights for features with wrong action
+                for feature, value in featuresForActions[chosenAction].items():
+                    self.weights[feature] -= value

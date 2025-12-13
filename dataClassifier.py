@@ -25,6 +25,7 @@ import sys
 import util
 from pacman import GameState
 from collections import deque
+from game import Directions
 
 TEST_SET_SIZE = 100
 DIGIT_DATUM_WIDTH=28
@@ -168,16 +169,65 @@ def enhancedFeatureExtractorPacman(state):
         features[action] = util.Counter(features[action], **enhancedPacmanFeatures(state, action))
     return features, state.getLegalActions()
 
+def addAll(features, featuresDict):
+    '''
+    Helper function to add all features from a dictionary to a features counter
+    '''
+    for name, condition in featuresDict.items():
+        if condition:
+            features[name] = 1
+
 def enhancedPacmanFeatures(state, action):
     """
     For each state, this function is called with each legal action.
     It should return a counter with { <feature name> : <feature value>, ... }
     """
     features = util.Counter()
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
-    return features
 
+    # get info on where pacman is before and after the move so we can see if it was a good decision
+    successor = state.generateSuccessor(0, action)
+    pacPos = successor.getPacmanPosition()
+    oldPos = state.getPacmanPosition()
+    currentDirection = state.getPacmanState().getDirection()
+
+    food = state.getFood().asList()
+    oldDistance, newDistance = [], []
+
+    # for each food see how far it is from pacman before/after the move and sort so closest food first
+    if food:
+        oldDistance = sorted(util.manhattanDistance(oldPos, foodPellet) for foodPellet in food)
+        newDistance = sorted(util.manhattanDistance(pacPos, foodPellet) for foodPellet in food)
+
+    ghosts = successor.getGhostStates()
+    minGhostDistance = float('inf')
+    minScaredDistance = float('inf')
+
+    # for each ghost how far it is from pacman if ghost is vulnerable see how edible it is otherwise track how dangerous it is
+    for ghost in ghosts:
+        distance = util.manhattanDistance(pacPos, ghost.getPosition())
+        if ghost.scaredTimer > 0:
+            minScaredDistance = min(minScaredDistance, distance)
+        else:
+            minGhostDistance = min(minGhostDistance, distance)
+
+    # dictionary of features to add
+    featuresDict = {
+    f'action_is_{action}': True,
+    'stop': action == Directions.STOP,
+    'move_forward': action == currentDirection,
+    'move_backward': currentDirection in Directions.REVERSE and action == Directions.REVERSE[currentDirection],
+    'eat_food': pacPos in food,
+    'eat_power_pellet': pacPos in state.getCapsules(),
+    'food_distance_decreases': food and newDistance[0] < oldDistance[0],
+    'food_distance_increases': food and newDistance[0] > oldDistance[0],
+    'adjacent_ghost': minGhostDistance <= 1,
+    'vulnerable_ghost_nearby': minScaredDistance <= 2,
+    'dead_end': len(successor.getLegalActions()) <= 2,
+}
+
+    addAll(features, featuresDict)
+
+    return features
 
 def contestFeatureExtractorDigit(datum):
     """
